@@ -1,5 +1,6 @@
 import lib.api_manager as api_manager
 import lib.constants as constants
+from tqdm import tqdm
 import logging
 
 
@@ -35,19 +36,29 @@ def get_sites_data(api_manager: object) -> list:
 
 
 def execute_healthcheck_on_sites(api_manager: object, sites: list) -> None:
-    for site in sites:
+    results = dict()
+    logging.info(f'Got a total of {len(sites)} sites to healthcheck.')
+    logging.info('Proceeding to call REST API for healthchecking each site...')
+
+    for site in tqdm(sites):
         api_manager.get_commpay_healthcheck_for_site(site)
 
         if not api_manager.is_last_api_call_ok():
-            logging.warning(f'{site}: {constants.HEALTHCHECK_FAILURE}')
+            results[site] = constants.HEALTHCHECK_FAILURE
             continue
 
         html = api_manager.get_response_as_raw()
         
         if all(substring in html for substring in constants.HTML_GOOD_HEALTH_ELEMENTS):
-            logging.info(f'{site}: {constants.HEALTHCHECK_GOOD}')
+            results[site] = constants.HEALTHCHECK_GOOD
         else:
-            logging.info(f'{site}: {constants.HEALTHCHECK_BAD}')
+            results[site] = constants.HEALTHCHECK_BAD
+
+    for site in results:
+        if results[site] == constants.HEALTHCHECK_FAILURE:
+            logging.warning(f'{site}: {results[site]}')
+        else:
+            logging.info(f'{site}: {results[site]}')
 
 
 if __name__ == '__main__':
